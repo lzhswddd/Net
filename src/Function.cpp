@@ -60,7 +60,7 @@ const Mat nn::LReLU(const Mat & x)
 		for (int j = 0; j < x.cols(); ++j)
 			for (int z = 0; z < x.channels(); ++z)
 				if (x(i, j, z) < 0)
-					x1(i, j, z) = x(i, j, z)*LReLU_alpha;
+					x1(i, j, z) *= LReLU_alpha;
 	return x1;
 }
 

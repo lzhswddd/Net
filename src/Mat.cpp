@@ -893,6 +893,33 @@ const Matrix nn::mMin(const Matrix &a, const Matrix &b)
 		mark(ind) = a(ind) < b(ind) ? a(ind) : b(ind);
 	return mark;
 }
+const Matrix nn::mThreshold(const Matrix & src, double boundary, double lower, double upper, int boundary2upper)
+{
+	if (src.empty()) {
+		cerr << errinfo[ERR_INFO_EMPTY] << endl;
+		throw errinfo[0];
+	}
+	Matrix mark(src);
+	switch (boundary2upper)
+	{
+	case -1:
+		for (int ind = 0; ind < mark.length(); ind++)
+			mark(ind) = mark(ind) <= boundary ? lower : upper;
+		break;
+	case 0:
+		for (int ind = 0; ind < mark.length(); ind++)
+			mark(ind) = mark(ind) >= boundary ? upper : lower;
+		break;
+	case 1:
+		for (int ind = 0; ind < mark.length(); ind++)
+			mark(ind) = mark(ind) < boundary ? lower : (mark(ind) == boundary ? boundary : upper);
+		break;
+	default:
+		cerr << errinfo[ERR_INFO_UNLESS] << endl;
+		throw errinfo[0];
+	}
+	return mark;
+}
 const Matrix nn::Filter2D(const Mat & input, const Mat & kern, Point anchor, const Size & strides, bool is_copy_border)
 {
 	if (input.channels() != 1) {

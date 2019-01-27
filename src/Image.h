@@ -40,9 +40,15 @@ namespace nn {
 		void copy(const Image &src);
 	};
 
-	const Image toImage(const Mat &src);
+	//Í¼Ïñ×ª¾ØÕó
+	const Mat Image2Mat(const Image &src);
+	//¾ØÕó×ªÍ¼Ïñ
+	const Image Mat2Image(const Mat &src);
+	//¶ÁÈ¡Í¼Ïñ
 	const Image Imread(const char *image_path, bool is_gray = false);
+	//±£´æÍ¼Ïñ
 	void Imwrite(const char *image_path, Image& image);
+	//RGB×ª»Ò¶È
 	void RGB2Gray(const Image& src, Image& dst);
 	//void Gray2RGB(const Image& src, Image& dst);
 }

@@ -15,7 +15,7 @@ void Optimizer::RegisterNet(Net * net)
 {
 	this->net = net;
 }
-bool Optimizer::Enable(Mat & x, Mat & y, vector<Mat>& a) const
+bool Optimizer::Enable(const Mat & x, const Mat & y, vector<Mat>& a) const
 {
 	return !(a.empty() || x.empty() || y.empty() || net == nullptr);
 }
@@ -32,7 +32,7 @@ OptimizerMethod Optimizer::Method() const
 */
 Method::Method() :Optimizer() {}
 Method::Method(double step) : Optimizer(step) {}
-double Method::Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a) { return 0.0; }
+int Method::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error) { return 0; }
 Optimizer* Method::minimize(LossFunc loss_)const
 {
 	Optimizer* train = new Method(*this);
@@ -48,17 +48,17 @@ GradientDescentOptimizer::GradientDescentOptimizer(vector<double>& value)
 {
 	step = value[0];
 }
-double GradientDescentOptimizer::Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a)
+int GradientDescentOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	a = a - step * df(a, x)
 	*/
-	if (!Enable(x, y, a))return NAN;
-	double error = net->Jacobi(x, y, dlayer);
+	if (!Enable(x, y, a))return -1;
+	int acc = net->Jacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		dlayer[layer_num] = -step * dlayer[layer_num];
 	}
-	return error;
+	return acc;
 }
 Optimizer* GradientDescentOptimizer::minimize(LossFunc loss_)const {
 	Optimizer* train = new GradientDescentOptimizer(*this);
@@ -90,19 +90,19 @@ void MomentumOptimizer::init(vector<Size3>& size)
 	for (size_t layer_num = 0; layer_num < size.size(); ++layer_num)
 		ma[layer_num] = zeros(size[layer_num]);
 }
-double MomentumOptimizer::Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a)
+int MomentumOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	ma = momentum*ma + step * df(a, x)
 	a = a - ma
 	*/
-	if (!Enable(x, y, a))return NAN;
-	double error = net->Jacobi(x, y, dlayer);
+	if (!Enable(x, y, a))return -1;
+	int acc = net->Jacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		ma[layer_num] = momentum * ma[layer_num] + step * dlayer[layer_num];
 		dlayer[layer_num] = -ma[layer_num];
 	}
-	return error;
+	return acc;
 }
 Optimizer* MomentumOptimizer::minimize(LossFunc loss_)const {
 	Optimizer* train = new MomentumOptimizer(*this);
@@ -136,23 +136,23 @@ void NesterovMomentumOptimizer::init(vector<Size3>& size)
 	for (size_t layer_num = 0; layer_num < size.size(); ++layer_num)
 		ma[layer_num] = zeros(size[layer_num]);
 }
-double NesterovMomentumOptimizer::Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a)
+int NesterovMomentumOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	ma = momentum*ma + step * df(a - momentum*ma, x)
 	a = a - ma
 	*/
-	if (!Enable(x, y, a))return NAN;
+	if (!Enable(x, y, a))return -1;
 	vector<Mat>(net->LayerNum()).swap(dlayer);
 	for (size_t layer_num = 0; layer_num < net->LayerNum(); ++layer_num) {
 		dlayer[layer_num] = -momentum * ma[layer_num];
 	}
-	double error = net->FutureJacobi(x, y, dlayer);
+	int acc = net->FutureJacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		ma[layer_num] = momentum * ma[layer_num] + step * dlayer[layer_num];
 		dlayer[layer_num] = -ma[layer_num];
 	}
-	return error;
+	return acc;
 }
 Optimizer* NesterovMomentumOptimizer::minimize(LossFunc loss_)const {
 	Optimizer* train = new NesterovMomentumOptimizer(*this);
@@ -186,19 +186,19 @@ void AdagradOptimizer::init(vector<Size3>& size)
 	for (size_t layer_num = 0; layer_num < size.size(); ++layer_num)
 		alpha[layer_num] = zeros(size[layer_num]);
 }
-double AdagradOptimizer::Run(vector<Mat>& dlayer, Mat & x, Mat & y, vector<Mat>& a)
+int AdagradOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	alpha = alpha + df(a, x)^2
 	a = a - step/sqrt(alpha + epsilon)*df(a, x)
 	*/
-	if (!Enable(x, y, a))return NAN;
-	double error = net->Jacobi(x, y, dlayer);
+	if (!Enable(x, y, a))return -1;
+	int acc = net->Jacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		alpha[layer_num] = alpha[layer_num] + mPow(dlayer[layer_num], 2);
 		dlayer[layer_num] = -Mult(step / mSqrt(alpha[layer_num] + epsilon), dlayer[layer_num]);
 	}
-	return error;
+	return acc;
 }
 Optimizer * AdagradOptimizer::minimize(LossFunc loss_) const
 {
@@ -234,19 +234,19 @@ void RMSPropOptimizer::init(vector<Size3>& size)
 	for (size_t layer_num = 0; layer_num < size.size(); ++layer_num)
 		alpha[layer_num] = zeros(size[layer_num]);
 }
-double RMSPropOptimizer::Run(vector<Mat>& dlayer, Mat & x, Mat & y, vector<Mat>& a)
+int RMSPropOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	alpha = beta*alpha + (1 - beta)*df(a, x)^2
 	a = a - step/sqrt(alpha + epsilon)*df(a, x)
 	*/
-	if (!Enable(x, y, a))return NAN;
-	double error = net->Jacobi(x, y, dlayer);
+	if (!Enable(x, y, a))return -1;
+	int acc = net->Jacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		alpha[layer_num] = decay * alpha[layer_num] + (1 - decay) *  mPow(dlayer[layer_num], 2);
 		dlayer[layer_num] = -Mult(step / mSqrt(alpha[layer_num] + epsilon), dlayer[layer_num]);
 	}
-	return error;
+	return acc;
 }
 Optimizer * RMSPropOptimizer::minimize(LossFunc loss_) const
 {
@@ -289,22 +289,22 @@ void AdamOptimizer::init(vector<Size3>& size)
 		alpha[layer_num] = zeros(size[layer_num]);
 	}
 }
-double AdamOptimizer::Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a)
+int AdamOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	ma = beta1*ma + (1 - beta1)*df(a, x)
 	alpha = beta2*alpha + (1 - beta2)*df(a, x)^2
 	a = a - step/sqrt(alpha + epsilon)*ma
 	*/
-	if (!Enable(x, y, a))return NAN;
-	double error = net->Jacobi(x, y, dlayer);
+	if (!Enable(x, y, a))return -1;
+	int acc = net->Jacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		Mat d = dlayer[layer_num];
 		ma[layer_num] = beta1 * ma[layer_num] + (1 - beta1)*dlayer[layer_num];
 		alpha[layer_num] = beta2 * alpha[layer_num] + (1 - beta2)*mPow(dlayer[layer_num], 2);
 		dlayer[layer_num] = -Mult(step / mSqrt(alpha[layer_num] + epsilon), ma[layer_num]);
 	}
-	return error;
+	return acc;
 }
 Optimizer * AdamOptimizer::minimize(LossFunc loss_) const
 {
@@ -349,26 +349,26 @@ void NesterovAdamOptimizer::init(vector<Size3>& size)
 		alpha[layer_num] = zeros(size[layer_num]);
 	}
 }
-double NesterovAdamOptimizer::Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a)
+int NesterovAdamOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error)
 {
 	/**
 	ma = beta1*ma + (1 - beta1)*df(a - step/sqrt(alpha + epsilon)*ma, x)
 	alpha = beta2*alpha + (1 - beta2)*df(a - step/sqrt(alpha + epsilon)*ma, x)^2
 	a = a - step/sqrt(alpha + epsilon)*ma
 	*/
-	if (!Enable(x, y, a))return NAN;
+	if (!Enable(x, y, a))return -1;
 	vector<Mat>(net->LayerNum()).swap(dlayer);
 	for (size_t layer_num = 0; layer_num < net->LayerNum(); ++layer_num) {
 		dlayer[layer_num] = -Mult(step / mSqrt(alpha[layer_num] + epsilon), ma[layer_num]);
 	}
-	double error = net->FutureJacobi(x, y, dlayer);
+	int acc = net->FutureJacobi(x, y, dlayer, error);
 	for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 		Mat d = dlayer[layer_num];
 		ma[layer_num] = beta1 * ma[layer_num] + (1 - beta1)*dlayer[layer_num];
 		alpha[layer_num] = beta2 * alpha[layer_num] + (1 - beta2)*mPow(dlayer[layer_num], 2);
 		dlayer[layer_num] = -Mult(step / mSqrt(alpha[layer_num] + epsilon), ma[layer_num]);
 	}
-	return error;
+	return acc;
 }
 Optimizer * NesterovAdamOptimizer::minimize(LossFunc loss_) const
 {

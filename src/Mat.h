@@ -518,6 +518,14 @@ namespace nn {
 		void checkindex(int index_x, int index_y)const;
 	};
 	typedef Matrix Mat;
+	/**
+	@brief Mat_ 工具类
+	继承Mat类，用于实现
+	Mat mat = (Mat_(3, 3) << 
+		-1, -1, -1,
+		-1,  9, -1,
+		-1, -1, -1);
+	*/
 	class Mat_ : public Mat
 	{
 	public:
@@ -536,6 +544,14 @@ namespace nn {
 		*/
 		Mat_(const Size3 &size_) : Mat(size_) {}
 	};
+	/**
+	@brief Mat_ 工具类
+	作为迭代器，用于实现
+	Mat mat = (Mat_(3, 3) <<
+		-1, -1, -1,
+		-1,  9, -1,
+		-1, -1, -1);
+	*/
 	class MatCommaInitializer_
 	{
 	public:
@@ -902,7 +918,18 @@ namespace nn {
 	@param a 比较矩阵
 	@param b 比较矩阵
 	*/
-	const Matrix mMin(const Matrix &a, const Matrix &b);
+	const Matrix mMin(const Matrix &a, const Matrix &b);	
+	/**
+	@brief 返回按boundary分界填充的矩阵
+	返回矩阵大小等于输入矩阵大小
+	@param src 输入矩阵
+	@param boundary 分界值
+	@param lower 小于boundary用lower填充
+	@param upper 大于boundary用upper填充
+	@param boundary2upper 当矩阵元素等于boundary时
+	为1归upper, 为-1归lower, 为0不处理
+	*/
+	const Matrix mThreshold(const Matrix &src, double boundary, double lower, double upper, int boundary2upper = 1);
 	/**
 	@brief 返回边界扩充的矩阵
 	@param src 输入矩阵

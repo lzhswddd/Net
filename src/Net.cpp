@@ -1,12 +1,10 @@
 #include <iostream>
 #include <fstream>
-#include <io.h>
-#include <direct.h>
 #include "include.h"
 using namespace std;
 using namespace nn;
 
-Net::Net() : op(nullptr) 
+Net::Net() : op(nullptr)
 {
 	ClearLayer();
 }
@@ -70,6 +68,15 @@ void Net::ClearLayer()
 	vector<Size3>().swap(shape);
 	vector<Activation>().swap(activation);
 }
+void Net::AddDropout(double dropout_prob)
+{
+	if (dropout_prob < 0 || dropout_prob > 1) {
+		fprintf(stderr, "dropout_prob must be between zero and one!");
+		throw dropout_prob;
+	}
+	config.push_back(DROPOUT);
+	dropout.push_back(dropout_prob);
+}
 void Net::AddActivation(ActivationFunc act_f)
 {
 	config.push_back(ACTIVATION);
@@ -114,24 +121,58 @@ void Net::AddReshape(int row, int col, int channel)
 }
 void Net::AddFullConnect(const Mat & full_layer, const Mat & full_bias)
 {
-	config.push_back(FULL_CONNECTION);
-	layer.push_back(full_layer);
-	layer.push_back(full_bias);
+	if (full_bias.cols() != 1) {
+		fprintf(stderr, "bias's col must be one!");
+		throw full_bias;
+	}
+	if (full_layer.cols() != full_bias.rows()) {
+		fprintf(stderr, "layer's col must be the same as bias's row!");
+		throw full_layer;
+	}
+	else {
+		layer.push_back(full_layer.Tran());
+		layer.push_back(full_bias);
+		config.push_back(FULL_CONNECTION);
+	}
 }
 void Net::AddFullConnect(int layer_row, int layer_col, int bias_row, int bias_col)
 {
-	config.push_back(FULL_CONNECTION);
-	layer.push_back(CreateMat(layer_row, layer_col));
-	layer.push_back(CreateMat(bias_row, bias_col));
+	if (bias_col != 1) {
+		fprintf(stderr, "bias's col must be one!");
+		throw bias_col;
+	}
+	if (layer_col != bias_row) {
+		fprintf(stderr, "layer's col must be the same as bias's row!");
+		throw layer_row;
+	}
+	else {
+		layer.push_back(CreateMat(layer_col, layer_row));
+		layer.push_back(CreateMat(bias_row, bias_col));
+		config.push_back(FULL_CONNECTION);
+	}
 }
 void Net::AddFullConnect(int layer_row, int layer_col, int layer_channel, int bias_row, int bias_col, int bias_channel)
 {
-	config.push_back(FULL_CONNECTION);
-	layer.push_back(CreateMat(layer_row, layer_col, layer_channel));
-	layer.push_back(CreateMat(bias_row, bias_col, bias_channel));
+	if (bias_col != 1) {
+		fprintf(stderr, "bias's col must be one!");
+		throw bias_col;
+	}
+	if (layer_col != bias_row) {
+		fprintf(stderr, "layer's col must be the same as bias's row!");
+		throw layer_row;
+	}
+	else {
+		layer.push_back(CreateMat(layer_col, layer_row, layer_channel));
+		layer.push_back(CreateMat(bias_row, bias_col, bias_channel));
+		config.push_back(FULL_CONNECTION);
+	}
 }
 void Net::AddConv(const Mat & conv_layer, const Mat & conv_bias, ConvInfo info)
 {
+	if (conv_bias.cols() != 1|| conv_bias.rows() != 1) {
+		fprintf(stderr, "bias's row and col must be one!");
+		throw conv_bias;
+	}
 	config.push_back(CONV2D);
 	convinfo.push_back(info);
 	layer.push_back(conv_layer);
@@ -139,6 +180,10 @@ void Net::AddConv(const Mat & conv_layer, const Mat & conv_bias, ConvInfo info)
 }
 void Net::AddConv(const Mat & conv_layer, const Mat & conv_bias, bool is_copy_border, Size strides, Point anchor)
 {
+	if (conv_bias.cols() != 1 || conv_bias.rows() != 1) {
+		fprintf(stderr, "bias's row and col must be one!");
+		throw conv_bias;
+	}
 	config.push_back(CONV2D);
 	convinfo.push_back(ConvInfo(strides, anchor, is_copy_border));
 	layer.push_back(conv_layer);
@@ -146,48 +191,100 @@ void Net::AddConv(const Mat & conv_layer, const Mat & conv_bias, bool is_copy_bo
 }
 void Net::AddConv(int kern_row, int kern_col, int input_channel, int output_channel, bool is_copy_border, Size strides, Point anchor)
 {
+	if (output_channel < input_channel) {
+		fprintf(stderr, "input_channel must be less than output_channel!");
+		throw input_channel;
+	}
+	if (output_channel / input_channel <= 0) {
+		fprintf(stderr, "output channel divided by input channel must be greater than one!");
+		throw output_channel;
+	}
 	config.push_back(CONV2D);
 	convinfo.push_back(ConvInfo(strides, anchor, is_copy_border));
 	layer.push_back(CreateMat(kern_row, kern_col, output_channel / input_channel));
 	layer.push_back(CreateMat(1, 1, output_channel));
 }
 
-void Net::InitModel(
-	vector<Mat>& layer, vector<LayerType> config, 
-	vector<Activation> activation, vector<ConvInfo> convinfo, 
-	vector<Size> poolinfo, vector<Size3> shape)
+void Net::InitModel(NetConfig & config_)
+{
+	if (config_.op != nullptr)
+		InitMethod(config_.op);
+	if (!config_.layer.empty())
+		SetLayer(config_.layer);
+	if (!config_.config.empty())
+		SetLayerType(config_.config);
+	if (!config_.convinfo.empty())
+		SetConvinfo(config_.convinfo);
+	if (!config_.poolinfo.empty())
+		SetPoolinfo(config_.poolinfo);
+	if (!config_.shape.empty())
+		SetReshape(config_.shape);
+	if (!config_.activation.empty())
+		SetActivation(config_.activation);
+	if (!config_.dropout.empty())
+		SetDropout(config_.dropout);
+}
+void Net::SetLayer(vector<Mat>& layer)
+{
+	layer.swap(this->layer);
+}
+void Net::SetLayerType(vector<LayerType>& config)
 {
 	config.swap(this->config);
+}
+void Net::SetConvinfo(vector<ConvInfo>& convinfo)
+{
 	convinfo.swap(this->convinfo);
+}
+void Net::SetPoolinfo(vector<Size>& poolinfo)
+{
 	poolinfo.swap(this->poolinfo);
-	layer.swap(this->layer);
+}
+void Net::SetReshape(vector<Size3>& shape)
+{
 	shape.swap(this->shape);
+}
+void Net::SetActivation(vector<Activation>& activation)
+{
 	activation.swap(this->activation);
 }
-double Net::TrainModel(Mat & input, Mat & output)
+void Net::SetDropout(vector<double>& dropout)
 {
-	if (op == nullptr)return NAN;
-	if (input.empty() || output.empty())return NAN;
+	dropout.swap(this->dropout);
+}
+
+int Net::TrainModel(const Mat & input, const Mat & label, double *error)
+{
+	if (op == nullptr)return -1;
+	if (input.empty() || label.empty())return -1;
 	vector<Mat> dlayer;
-	double error = BackPropagation(input, output, dlayer);
+	double err; 
+	int acc;
+	if (error == nullptr) 
+		acc = BackPropagation(input, label, dlayer, err);
+	else
+		acc = BackPropagation(input, label, dlayer, *error);
 	for (size_t layer_num = 0; layer_num < layer.size(); ++layer_num) {
 		layer[layer_num] += dlayer[layer_num];
 	}
-	return error;
+	return acc == 1 ? 1 : 0;
 }
-double Net::TrainModel(vector<Mat> &input, vector<Mat> &output)
+double Net::TrainModel(const vector<Mat> &input, const vector<Mat> &label, double *error)
 {
 	if (op == nullptr)return NAN;
-	if (input.empty() || output.empty())return NAN;
+	if (input.empty() || label.empty())return NAN;
 	vector<Mat> dlayer(layer.size());
 	for (size_t layer_num = 0; layer_num < layer.size(); ++layer_num) {
 		dlayer[layer_num] = Mat(layer[layer_num].size3());
 	}
-	double error = 0;
-	for (vector<Mat>::iterator x = input.begin(), y = output.begin();
-		x != input.end(), y != output.end(); ++x, ++y) {
+	int acc = 0;
+	double err = 0;
+	double error_ = 0;
+	for (vector<Mat>::const_iterator x = input.begin(), y = label.begin();
+		x != input.end(), y != label.end(); ++x, ++y) {
 		vector<Mat> d_layer;
-		error += BackPropagation(*x, *y, d_layer);
+		acc += BackPropagation(*x, *y, d_layer, err);	
+		error_ += err;
 		for (size_t layer_num = 0; layer_num < dlayer.size(); ++layer_num) {
 			dlayer[layer_num] += d_layer[layer_num];
 		}
@@ -195,7 +292,10 @@ double Net::TrainModel(vector<Mat> &input, vector<Mat> &output)
 	for (size_t layer_num = 0; layer_num < layer.size(); ++layer_num) {
 		layer[layer_num] += dlayer[layer_num] / (double)input.size();
 	}
-	return error / (double)input.size();
+	error_ /= (double)input.size();
+	if (error != nullptr)
+		*error = error_;
+	return acc / (double)input.size();
 }
 Mat Net::Run(const Mat & input) const
 {
@@ -237,13 +337,14 @@ Mat Net::Run(const Mat & input) const
 		case RESHAPE:
 			y.reshape(shape[shape_layer].x, shape[shape_layer].y, shape[shape_layer].z);
 			shape_layer += 1;
+		case DROPOUT:break;
 		default:
 			break;
 		}
 	}
 	return y;
 }
-void Net::ForwardPropagation(Mat & input, Mat & output, const vector<Mat> & layer, vector<Mat>& variable) const
+void Net::ForwardPropagation(const Mat & input, Mat & output, const vector<Mat> & layer, vector<Mat>& variable) const
 {
 	Mat mark;
 	Mat y = input;
@@ -255,6 +356,7 @@ void Net::ForwardPropagation(Mat & input, Mat & output, const vector<Mat> & laye
 		conv_layer = 0,
 		pool_layer = 0,
 		shape_layer = 0,
+		dropout_layer = 0,
 		activation_layer = 0;
 		index < config.size(); ++index) {
 		switch (config[index])
@@ -276,7 +378,7 @@ void Net::ForwardPropagation(Mat & input, Mat & output, const vector<Mat> & laye
 			variable.push_back(y);
 			pool_layer += 1;
 			break;
-		case FULL_CONNECTION:
+		case FULL_CONNECTION:					
 			y = FullConnection(y, layer[layer_num], layer[layer_num + 1]);
 			variable.push_back(y);
 			layer_num += 2;
@@ -285,8 +387,9 @@ void Net::ForwardPropagation(Mat & input, Mat & output, const vector<Mat> & laye
 			y = activation[activation_layer].activation_f(y);
 			activation_layer += 1;
 			break;
-		case RESHAPE: {
-			Mat mat(3, 1, 1); 
+		case RESHAPE: 
+			{
+			Mat mat(3, 1, 1);
 			mat(0) = y.rows();
 			mat(1) = y.cols();
 			mat(2) = y.channels();
@@ -294,7 +397,16 @@ void Net::ForwardPropagation(Mat & input, Mat & output, const vector<Mat> & laye
 			y.reshape(shape[shape_layer].x, shape[shape_layer].y, shape[shape_layer].z);
 			variable.push_back(y);
 			shape_layer += 1;
-		}
+			}
+			break;
+		case DROPOUT: 
+			if (dropout[dropout_layer] != 0) {
+				Mat drop = mThreshold(mRand(0, 1, y.rows(), y.cols(), y.channels(), true), dropout[dropout_layer], 0, 1);
+				y = Mult(y, drop);
+				y /= (1 - dropout[dropout_layer]);
+			}
+			dropout_layer += 1;
+			break;
 		default:
 			break;
 		}
@@ -302,23 +414,33 @@ void Net::ForwardPropagation(Mat & input, Mat & output, const vector<Mat> & laye
 	variable.push_back(y);
 	y.swap(output);
 }
-double Net::BackPropagation(Mat & input, Mat & output, vector<Mat>& d_layer)
+int Net::BackPropagation(const Mat & input, const Mat & output, vector<Mat>& d_layer, double & error)
 {
-	return op->Run(d_layer, input, output, layer);
+	return op->Run(d_layer, input, output, layer, error);
 }
-double Net::FutureJacobi(Mat & input, Mat & output, vector<Mat>& d_layer) const
+int Net::FutureJacobi(const Mat & input, const Mat & output, vector<Mat>& d_layer, double & error) const
 {
-	return 0.0;
+	vector<Mat> layer_(layer);
+	for (size_t index = 0; index < layer.size(); ++index) {
+		layer_[index] += d_layer[index];
+	}
+	vector<Mat> variable;
+	Mat transmit;
+	ForwardPropagation(input, transmit, layer_, variable);
+	error = op->loss.loss_f(output, transmit).Norm(2);
+	JacobiMat(d_layer, variable, output, transmit);
+	if (output.maxAt() == transmit.maxAt())return 1;
+	else return  0;
 }
-double Net::Jacobi(Mat & input, Mat & output, vector<Mat>& d_layer) const
+int Net::Jacobi(const Mat & input, const Mat & output, vector<Mat>& d_layer, double & error) const
 {
 	vector<Mat> variable;
 	Mat transmit;
 	ForwardPropagation(input, transmit, layer, variable);
+	error = op->loss.loss_f(output, transmit).Norm(2);
 	JacobiMat(d_layer, variable, output, transmit);
 	if (output.maxAt() == transmit.maxAt())return 1;
 	else return  0;
-	//return op->loss.loss_f(output, transmit).Norm(2);
 }
 void Net::JacobiMat(
 	vector<Mat> &d_layer, const vector<Mat> &x,
@@ -381,12 +503,14 @@ void Net::JacobiMat(
 			if (x[x_num].length() != 3)x_num -= 1;
 			value.reshape((int)x[x_num](0), (int)x[x_num](1), (int)x[x_num](2));
 			x_num -= 1;
+		case DROPOUT:break;
 		default:
 			break;
 		}
 	}
 	dlayer.swap(d_layer);
 }
+
 void Net::InitMethod(Optimizer* optrimizer)
 {
 	if (op != nullptr) {
@@ -531,6 +655,13 @@ void Net::ReadModel(string model_path)
 			model >> reshape_size.z;
 			AddReshape(reshape_size);
 		}
+		else if (str == "DROPOUT") {
+			double dropout_p;
+			model >> str;
+			if (str != "dropout")goto MODEL_READ_FAIL;
+			model >> dropout_p;
+			AddDropout(dropout_p);
+		}
 		else goto MODEL_READ_FAIL;
 	}
 
@@ -635,6 +766,7 @@ void Net::SaveModel(string save_path) const
 			conv_layer = 0,
 			pool_layer = 0,
 			shape_layer = 0,
+			dropout_layer = 0,
 			activation_layer = 0; i < config.size(); ++i) {
 			model << "layer_num  " << "No." << i + 1 << endl;
 			switch (config[i])
@@ -680,6 +812,10 @@ void Net::SaveModel(string save_path) const
 				model << "reshape_channel " << shape[shape_layer].z << endl;
 				shape_layer += 1;
 				break;
+			case DROPOUT:
+				model << "DROPOUT" << endl;
+				model << "dropout " << dropout[dropout_layer] << endl;
+				dropout_layer += 1;
 			default:
 				break;
 			}
@@ -706,20 +842,15 @@ void Net::SaveModel(string save_path) const
 		model.close();
 	}
 }
-void Net::AddConv(bool is_copy_border, Size strides, Point anchor)
-{
-	config.push_back(CONV2D);
-	convinfo.push_back(ConvInfo(strides, anchor, is_copy_border));
-}
 size_t Net::LayerNum() const
 {
 	return layer.size();
 } 
-bool Net::Run(Mat & input, Mat & output) const
+bool Net::Run(const Mat & input, const Mat & output) const
 {
 	return (Run(input).maxAt() == output.maxAt());
 }
-double Net::Accuracy(vector<Mat>& input, vector<Mat>& output) const
+double Net::Accuracy(const vector<Mat>& input, const vector<Mat>& output) const
 {
 	if (input.empty() || output.empty())return NAN;
 	if (input.size() != output.size())return NAN;
@@ -732,12 +863,41 @@ double Net::Accuracy(vector<Mat>& input, vector<Mat>& output) const
 	}
 	return (double)success / (double)sum;
 }
+void Net::AddConv(bool is_copy_border, Size strides, Point anchor)
+{
+	config.push_back(CONV2D);
+	convinfo.push_back(ConvInfo(strides, anchor, is_copy_border));
+}
 
-Mat nn::CreateMat(int row, int col, int channel, double low, double top)
+Optimizer * nn::CreateOptimizer(OptimizerMethod opm, double step, LossFunc loss_f, const Mat & value)
+{
+	switch (opm)
+	{
+	case None:
+		return Method().minimize(loss_f);
+	case GradientDescent:
+		return GradientDescentOptimizer(step).minimize(loss_f);
+	case Momentum:
+		return MomentumOptimizer(step, value(0)).minimize(loss_f);
+	case NesterovMomentum:
+		return NesterovMomentumOptimizer(step, value(0)).minimize(loss_f);
+	case Adagrad:
+		return AdagradOptimizer(step, value(2)).minimize(loss_f);
+	case RMSProp:
+		return RMSPropOptimizer(step, value(0), value(2)).minimize(loss_f);
+	case Adam:
+		return AdamOptimizer(step, value(0), value(1), value(2)).minimize(loss_f);
+	case NesterovAdam:
+		return NesterovAdamOptimizer(step, value(0), value(1), value(2)).minimize(loss_f);
+	default:
+		return nullptr;
+	}
+}
+const Mat nn::CreateMat(int row, int col, int channel, double low, double top)
 {
 	return mRand(0, int(top - low), row, col, channel, true) + low;
 }
-Mat nn::CreateMat(int row, int col, int channel_input, int channel_output, double low, double top)
+const Mat nn::CreateMat(int row, int col, int channel_input, int channel_output, double low, double top)
 {
 	return mRand(0, int(top - low), row, col, channel_output / channel_input, true) + low;
 }

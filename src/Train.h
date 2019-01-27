@@ -13,8 +13,7 @@ using std::string;
 namespace nn {
 	/**
 	@brief Optimizer优化器基类
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
-	存储和读写神经网络函数模型
+	注册模型的损失函数loss
 	提供优化方法
 	*/
 	class Optimizer
@@ -36,9 +35,9 @@ namespace nn {
 		@param size
 		@param size
 		*/
-		virtual double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a) = 0;
+		virtual int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error) = 0;
 		void RegisterNet(Net *net);
-		bool Enable(Mat &x, Mat&y, vector<Mat>& a)const;
+		bool Enable(const Mat &x, const Mat&y, vector<Mat>& a)const;
 		void RegisterMethod(OptimizerMethod method);
 		OptimizerMethod Method()const;
 		Loss loss;
@@ -47,12 +46,12 @@ namespace nn {
 		Net * net;
 		//学习率
 		double step;
-
+		//继承基类的类型
 		OptimizerMethod method;
 	};
 	/**
 	@brief Method网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	不提供优化方法
 	*/
 	class Method :public Optimizer
@@ -61,12 +60,12 @@ namespace nn {
 		explicit Method();
 		Method(double step);
 		void init(vector<Size3>& size) {}
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		Optimizer* minimize(LossFunc loss_ = nullptr)const;
 	};
 	/**
 	@brief GradientDescentOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法GradientDescent
 	a = a - step * df(a, x)
 	*/
@@ -80,7 +79,7 @@ namespace nn {
 		explicit GradientDescentOptimizer(double step = 1e-2);
 		GradientDescentOptimizer(vector<double>& value);
 		void init(vector<Size3>& size) {}
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数
@@ -92,7 +91,7 @@ namespace nn {
 	};
 	/**
 	@brief MomentumOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法MomentumGradientDescent
 	ma = momentum*ma + step * df(a, x)
 	a = a - ma
@@ -108,7 +107,7 @@ namespace nn {
 		explicit MomentumOptimizer(double step = 1e-2, double gama = 0.9);
 		MomentumOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数
@@ -124,7 +123,7 @@ namespace nn {
 	};
 	/**
 	@brief NesterovMomentumOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法NesterovMomentumGradientDescent
 	ma = momentum*ma + step * df(a - momentum*ma, x)
 	a = a - ma
@@ -140,7 +139,7 @@ namespace nn {
 		explicit NesterovMomentumOptimizer(double step = 1e-2, double gama = 0.9);
 		NesterovMomentumOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数
@@ -156,7 +155,7 @@ namespace nn {
 	};
 	/**
 	@brief AdagradOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法AdagradGradientDescent
 	alpha = alpha + df(a, x)^2
 	a = a - step/sqrt(alpha + epsilon)*df(a, x)
@@ -172,7 +171,7 @@ namespace nn {
 		explicit AdagradOptimizer(double step = 1e-2, double epsilon = 1e-7); 
 		AdagradOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数
@@ -187,7 +186,7 @@ namespace nn {
 	};
 	/**
 	@brief RMSPropOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法RMSPropGradientDescent
 	alpha = beta*alpha + (1 - beta)*df(a, x)^2
 	a = a - step/sqrt(alpha + epsilon)*df(a, x)
@@ -204,7 +203,7 @@ namespace nn {
 		explicit RMSPropOptimizer(double step = 1e-2, double decay = 0.9, double epsilon = 1e-7);
 		RMSPropOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数
@@ -220,7 +219,7 @@ namespace nn {
 	};
 	/**
 	@brief AdamOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法AdamGradientDescent
 	ma = beta1*ma + (1 - beta1)*df(a, x)
 	alpha = beta2*alpha + (1 - beta2)*df(a, x)^2
@@ -239,7 +238,7 @@ namespace nn {
 		explicit AdamOptimizer(double step = 1e-2, double beta1 = 0.9, double beta2 = 0.999, double epsilon = 1e-7);
 		AdamOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数
@@ -257,7 +256,7 @@ namespace nn {
 	};
 	/**
 	@brief NesterovAdamOptimizer网络的函数配置
-	注册模型的损失函数loss，激活函数activation_f，输出函数output_f
+	注册模型的损失函数loss
 	提供优化方法NesterovAdamGradientDescent
 	ma = beta1*ma + (1 - beta1)*df(a - step/sqrt(alpha + epsilon)*ma, x)
 	alpha = beta2*alpha + (1 - beta2)*df(a - step/sqrt(alpha + epsilon)*ma, x)^2
@@ -276,7 +275,7 @@ namespace nn {
 		explicit NesterovAdamOptimizer(double step = 1e-2, double beta1 = 0.9, double beta2 = 0.999, double epsilon = 1e-7);
 		NesterovAdamOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
-		double Run(vector<Mat> &dlayer, Mat &x, Mat &y, vector<Mat> &a);
+		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);
 		/**
 		@brief 配置模型函数，返回注册的优化器Optimizer
 		@param loss_ 损失函数

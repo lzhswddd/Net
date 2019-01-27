@@ -6,24 +6,44 @@ namespace nn
 	static const double pi = 3.1415926535897932384626433832795f;
 	typedef unsigned char uchar;
 	typedef unsigned int uint;
+	/**
+	CONV2D			卷积层
+	MAX_POOL		最大值池化层
+	AVERAGE_POOL	平均值池化层
+	FULL_CONNECTION 全连接层
+	ACTIVATION		激活层
+	RESHAPE			重置维度层
+	DROPOUT			随机使能层
+	*/
 	enum LayerType {
 		CONV2D = 0,
 		MAX_POOL,
 		AVERAGE_POOL,
 		FULL_CONNECTION,
 		ACTIVATION,
-		RESHAPE
+		RESHAPE,
+		DROPOUT
 	};
+	/**
+	None				不提供优化功能
+	GradientDescent		提供梯度下降法
+	Momentum			提供动量梯度下降法
+	NesterovMomentum	提供预测动量梯度下降法
+	Adagrad				提供自适应学习率梯度下降法
+	RMSProp				提供改良自适应学习率梯度下降法
+	Adam				提供自适应学习率动量梯度下降法
+	NesterovAdam		提供自适应学习率预测动量梯度下降法
+	*/
 	enum OptimizerMethod
 	{
-		None= 0,
-		GradientDescent,
-		Momentum,
-		NesterovMomentum,
-		Adagrad,
-		RMSProp,
-		Adam,
-		NesterovAdam
+		None= 0,		//!< 不提供优化功能
+		GradientDescent,//!< 提供梯度下降法
+		Momentum,		//!< 提供动量梯度下降法
+		NesterovMomentum,//!< 提供预测动量梯度下降法
+		Adagrad,		//!< 提供自适应学习率梯度下降法
+		RMSProp,		//!< 提供改良自适应学习率梯度下降法
+		Adam,			//!< 提供自适应学习率动量梯度下降法
+		NesterovAdam	//!< 提供自适应学习率预测动量梯度下降法
 	};
 	enum BorderTypes {
 		BORDER_CONSTANT = 0, //!< `iiiiii|abcdefgh|iiiiiii`  with some specified `i`

@@ -199,19 +199,29 @@ const Image nn::operator-(const uchar value, const Image & src)
 	return src - value;
 }
 
-const Image nn::toImage(const Mat & src)
+const Mat nn::Image2Mat(const Image & src)
+{
+	if (src.empty())return Mat();
+	Mat mat(src.rows, src.cols, src.channels);
+	for (int i = 0; i < mat.rows(); ++i)
+		for (int j = 0; j < mat.cols(); ++j)
+			for (int z = 0; z < mat.channels(); ++z)
+				mat(i, j, 0) = (uchar)src(i, j, z);
+	return mat;
+}
+
+const Image nn::Mat2Image(const Mat & src)
 {
 	if(src.empty())return Image();
 	Image image;
 	image.rows = src.rows();
 	image.cols = src.cols();
-	image.channels = 1;
+	image.channels = src.channels();;
 	image.data = new uchar[image.rows*image.cols*image.channels];
-	for (int i = 0; i < src.rows(); ++i) {
-		for (int j = 0; j < src.cols(); ++j) {
-			image(i, j, 0) = (uchar)src(i, j);
-		}
-	}
+	for (int i = 0; i < src.rows(); ++i)
+		for (int j = 0; j < src.cols(); ++j)
+			for (int z = 0; z < src.channels(); ++z)
+				image(i, j, z) = (uchar)src(i, j, z);
 	return image;
 }
 
@@ -241,7 +251,7 @@ void nn::RGB2Gray(const Image & src, Image & dst)
 {
 	if (src.empty())return;
 	if (src.channels != 1) {
-		Image img = toImage(zeros(src.rows, src.cols));
+		Image img = Mat2Image(zeros(src.rows, src.cols));
 		for (int i = 0; i < src.rows; ++i) {
 			for (int j = 0; j < src.cols; ++j) {
 				Vec<uchar> rgb = src(i, j);
