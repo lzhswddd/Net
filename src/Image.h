@@ -5,6 +5,7 @@
 #include "Mat.h"
 
 namespace nn {	
+	//¹ÜÀíÍ¼ÏñÀà
 	class Image
 	{
 	public:

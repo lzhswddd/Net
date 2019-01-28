@@ -126,7 +126,7 @@ void NetTrain(vector<Mat> &input, vector<Mat> &label, Net &net, int n, int m, in
 		double acc = 0;
 		//Îó²î
 		double error = 0;
-		//Îó²î
+		//Æ½¾ùÎó²î
 		double mean_error = (double)times;
 		for (int i = 0; i <= n; ++i) {
 			//ÂÒĞò

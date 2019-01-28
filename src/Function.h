@@ -8,8 +8,9 @@ namespace nn {
 	//LeakyReLU的超参
 	const double LReLU_alpha = 0.2;
 	//ELU的超参
-	const double ElU_alpha = 1.6732632423543772848170429916717;
-	const double SElU_scale = 1.0507009873554804934193349852946;
+	const double ELU_alpha = 1.6732632423543772848170429916717;
+	//SELU的超参
+	const double SELU_scale = 1.0507009873554804934193349852946;
 
 	typedef const Mat(*ActivationFunc)(const Mat &x);
 	typedef const Mat(*func)(const Mat & a, const Mat & x);

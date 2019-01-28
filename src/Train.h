@@ -1,8 +1,6 @@
 #ifndef __TRAIN_H__
 #define __TRAIN_H__
 
-#include "Mat.h"
-#include "Function.h"
 #include "Net.h"
 #include <vector>
 #include <string>

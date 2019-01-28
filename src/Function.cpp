@@ -44,13 +44,13 @@ const Mat nn::ELU(const Mat & x)
 		for (int j = 0; j < x.cols(); ++j)
 			for (int z = 0; z < x.channels(); ++z)
 				if (x(i, j, z) <= 0)
-					x1(i, j, z) = ElU_alpha * (exp(x(i, j, z)) - 1);
+					x1(i, j, z) = ELU_alpha * (exp(x(i, j, z)) - 1);
 	return x1;
 }
 
 const Mat nn::SELU(const Mat & x)
 {
-	return SElU_scale * ELU(x);
+	return SELU_scale * ELU(x);
 }
 
 const Mat nn::LReLU(const Mat & x)
@@ -111,14 +111,14 @@ const Mat nn::D_ELU(const Mat & x)
 				if (x(i, j, z) > 0)
 					x1(i, j, z) = 1;
 				else if (x(i, j, z) < 0)
-					x1(i, j, z) = ElU_alpha * exp(x(i, j, z));
+					x1(i, j, z) = ELU_alpha * exp(x(i, j, z));
 			}
 	return x1;
 }
 
 const Mat nn::D_SELU(const Mat & x)
 {
-	return SElU_scale * D_ELU(x);
+	return SELU_scale * D_ELU(x);
 }
 
 const Mat nn::D_LReLU(const Mat & x)
