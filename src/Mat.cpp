@@ -893,6 +893,20 @@ const Matrix nn::mMin(const Matrix &a, const Matrix &b)
 		mark(ind) = a(ind) < b(ind) ? a(ind) : b(ind);
 	return mark;
 }
+Size3 nn::mCalSize(const Matrix & src, const Matrix & kern, Point & anchor, Size strides, int & top, int & bottom, int & left, int & right)
+{
+	int kern_row = kern.rows();
+	int kern_col = kern.cols();
+	if (anchor == Point(-1, -1)) {
+		anchor.x = kern_row % 2 ? kern_row / 2 : kern_row / 2 - 1;
+		anchor.y = kern_col % 2 ? kern_col / 2 : kern_col / 2 - 1;
+	}
+	top = anchor.x;
+	bottom = kern_row - anchor.x - 1;
+	left = anchor.y;
+	right = kern_col - anchor.y - 1;
+	return Size3((src.rows() - top - bottom) / strides.hei, (src.cols() - left - right) / strides.wid, src.channels()*kern.channels());
+}
 const Matrix nn::mThreshold(const Matrix & src, double boundary, double lower, double upper, int boundary2upper)
 {
 	if (src.empty()) {
@@ -933,15 +947,8 @@ const Matrix nn::Filter2D(const Mat & input, const Mat & kern, Point anchor, con
 	Mat src;
 	int kern_row = kern.rows();
 	int kern_col = kern.cols();
-	if (anchor == Point(-1, -1)) {
-		anchor.x = kern_row % 2 ? kern_row / 2 : kern_row / 2 - 1;
-		anchor.y = kern_col % 2 ? kern_col / 2 : kern_col / 2 - 1;
-	}
 	int left, right, top, bottom;
-	top = anchor.x;
-	bottom = kern_row - anchor.x - 1;
-	left = anchor.y;
-	right = kern_col - anchor.y - 1;
+	Size3 size = mCalSize(input, kern, anchor, strides, left, right, top, bottom);
 	Mat dst;
 	if (is_copy_border) {		
 		src = copyMakeBorder(input, top, bottom, left, right);
@@ -949,7 +956,7 @@ const Matrix nn::Filter2D(const Mat & input, const Mat & kern, Point anchor, con
 	}
 	else {
 		input.swap(src);
-		dst = zeros((src.rows() - top - bottom) / strides.hei, (src.cols() - left - right) / strides.wid);
+		dst = zeros(size.x, size.y);
 	}
 	for (int row = top, x = 0; row < src.rows() - bottom; row += (int)strides.hei, x++)
 		for (int col = left, y = 0; col < src.cols() - right; col += (int)strides.wid, y++) {

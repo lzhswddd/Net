@@ -217,6 +217,12 @@ namespace nn {
 		*/
 		void addones(direction dire = LEFT);
 		/**
+		@brief mChannel 将src覆盖到第channel通道
+		@param src 矩阵
+		@param channel 通道数
+		*/
+		void mChannel(const Matrix &src, int channel);
+		/**
 		@brief 设置矩阵维度
 		不允许改变矩阵长度
 		*/
@@ -545,7 +551,7 @@ namespace nn {
 		Mat_(const Size3 &size_) : Mat(size_) {}
 	};
 	/**
-	@brief Mat_ 工具类
+	@brief MatCommaInitializer_ 工具类
 	作为迭代器，用于实现
 	Mat mat = (Mat_(3, 3) <<
 		-1, -1, -1,
@@ -919,6 +925,20 @@ namespace nn {
 	@param b 比较矩阵
 	*/
 	const Matrix mMin(const Matrix &a, const Matrix &b);	
+	/**
+	@brief mCalSize 计算卷积所需扩张的边界
+	返回矩阵大小
+	@param src 被卷积矩阵
+	@param kern 卷积核
+	@param anchor 像素对应卷积核坐标
+	anchor默认为Point(-1,-1), 像素对应卷积核中心
+	@param strides 滑动步长
+	@param top 向上扩充几行
+	@param bottom 向下扩充几行
+	@param left 向左扩充几列
+	@param right 向右扩充几列
+	*/
+	Size3 mCalSize(const Matrix &src, const Matrix &kern, Point & anchor, Size strides, int &top, int &bottom, int &left, int &right);
 	/**
 	@brief 返回按boundary分界填充的矩阵
 	返回矩阵大小等于输入矩阵大小

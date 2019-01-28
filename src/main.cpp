@@ -82,28 +82,28 @@ void testNet(string file_path, string model_path, string finish_save_path)
 //构建网络
 void CreateNN(Net & nn)
 {
-	nn.AddFullConnect(CreateMat(16 * 16, 50), CreateMat(50, 1));//增加全连接 16*16 -> 100
+	nn.AddFullConnect(CreateMat(16 * 16, 50), CreateMat(50, 1));//增加全连接 16*16 -> 50
 	nn.AddActivation(Sigmoid);//增加激活层Sigmoid
 	//nn.AddDropout(0.3);//增加dropout层, 丢弃率为0.3
-	nn.AddFullConnect(CreateMat(50, 50), CreateMat(50, 1));//增加全连接 100 -> 50
+	nn.AddFullConnect(CreateMat(50, 50), CreateMat(50, 1));//增加全连接 50 -> 50
 	nn.AddActivation(Sigmoid);//增加激活层Sigmoid
 	nn.AddFullConnect(CreateMat(50, 23), CreateMat(23, 1));//增加全连接 50 -> 23
 	nn.AddActivation(Softmax);//增加激活层Softmax
-	nn.InitMethod(CreateOptimizer(GradientDescent, 5e-1, Quadratic));//注册优化器Momentum, 学习率为0.02, 损失函数为平方差
+	nn.InitMethod(CreateOptimizer(NesterovMomentum, 5e-1, Quadratic));//注册优化器NesterovMomentum, 学习率为0.5, 损失函数为平方差
 }
 void CreateCNN(Net & cnn)
 {
 	cnn.AddReshape(16, 16);//增加重置维度层将(16*16, 1, 1)->(16, 16, 1)
-	cnn.AddConv(CreateMat(5, 5, 1, 10), CreateMat(1, 1, 10));//增加卷积层(卷积核为5*5*10
-	cnn.AddActivation(ReLU);//增加激活层ReLU
+	cnn.AddConv(CreateMat(3, 3, 1, 3), CreateMat(1, 1, 3));//增加卷积层(卷积核为3*3*3
+	cnn.AddActivation(ELU);//增加激活层ELU
 	cnn.AddMaxPool(2, 2);//增加最大值池化层(池化大小为2,2 <! 长宽缩小一半
-	cnn.AddConv(CreateMat(3, 3, 10, 30), CreateMat(1, 1, 30));//增加卷积层(卷积核为3*3*3
-	cnn.AddActivation(ReLU);//增加激活层ReLU
+	cnn.AddConv(CreateMat(3, 3, 3, 9), CreateMat(1, 1, 9));//增加卷积层(卷积核为3*3*3
+	cnn.AddActivation(ELU);//增加激活层ELU
 	cnn.AddMaxPool(2, 2);//增加最大值池化层(池化大小为2,2 <! 长宽缩小一半
-	cnn.AddReshape(4 * 4 * 30, 1);//增加重置维度层将(4, 4, 30)->(4*4*30, 1, 1)
-	cnn.AddFullConnect(CreateMat(4 * 4 * 30, 256), CreateMat(256, 1));//增加全连接层4*4*30 -> 256
-	cnn.AddActivation(ReLU);//增加激活层ReLU
-	cnn.AddFullConnect(CreateMat(256, 23), CreateMat(23, 1));//增加全连接层256 ->23
+	cnn.AddReshape(4 * 4 * 9, 1);//增加重置维度层将(4, 4, 9)->(4*4*9, 1, 1)
+	cnn.AddFullConnect(CreateMat(4 * 4 * 9, 128), CreateMat(128, 1));//增加全连接层4*4*9 -> 128
+	cnn.AddActivation(ELU);//增加激活层ELU
+	cnn.AddFullConnect(CreateMat(128, 23), CreateMat(23, 1));//增加全连接层128 ->23
 	cnn.AddActivation(Softmax);//增加激活层Softmax
 	cnn.InitMethod(CreateOptimizer(Adam, 1e-2, CrossEntropy));//注册优化器Adam, 学习率为0.02, 损失函数为交叉熵
 }
@@ -126,14 +126,8 @@ void NetTrain(vector<Mat> &input, vector<Mat> &label, Net &net, int n, int m, in
 		double acc = 0;
 		//误差
 		double error = 0;
-		double d_error = 0;
-		//正确率
-		double mean_acc = 0;
 		//误差
-		double mean_error = 0;
-		//百分百正确率出现的次数
-		int count = 0;
-		bool calall = false;
+		double mean_error = (double)times;
 		for (int i = 0; i <= n; ++i) {
 			//乱序
 			random_shuffle(randomVec.begin(), randomVec.end());
@@ -146,9 +140,11 @@ void NetTrain(vector<Mat> &input, vector<Mat> &label, Net &net, int n, int m, in
 				out[j] = label[randomVec[j]];
 			}
 			//训练模型
-			acc = net.TrainModel(in, out, &error);
-			if (i%times == 0) {				
-				printf("迭代次数：%d \t样本正确率：%0.2lf%% \t误差：%0.4e\n", i, acc * 100, error);
+			acc += net.TrainModel(in, out, &error);
+			mean_error += error;
+			if (i%times == 0) {		
+				printf("迭代次数：%d \t%d次平均样本正确率：%0.2lf%% \t平均误差：%0.4e\n", i, times, acc * 100 / (double)times, mean_error / (double)times);
+				mean_error = acc = 0;
 			}
 		}
 	}
@@ -159,33 +155,55 @@ void train(vector<Mat> & input, vector<Mat> & label, Net &net, int n, int m, int
 	printf("总正确率：%0.4lf%%\n", net.Accuracy(input, label) * 100);
 	net.SaveModel(save_path);
 }
-int main()
+
+
+//#define NET_CNN
+#ifndef NET_CNN
+#define NET_NN
+#endif // NET_CNN
+
+
+int main(int argc, char *argv[])
 {
-	clock_t start, end;
-	if (0 != _access("data.txt", 0))
 	{
-		system("python totxt.py");
+		clock_t start, end;
+		if (0 != _access("data.txt", 0))
+		{
+			system("python totxt.py");
+		}
+		vector<Mat> input;
+		vector<Mat> output;
+		read_data(input, output);
+		start = clock();
+		Srandom();
+		string save_nn_path = "./model/nn_model.conf";
+		string save_nn_output = "nn_finish.csv";
+		string save_cnn_path = "./model/cnn_model.conf";
+		string save_cnn_output = "cnn_finish.csv";
+		string save_path, save_output;
+		Net net; int batchs_num, iteration, show_times;
+#ifdef NET_NN
+		//全连接网络
+		CreateNN(net);
+		iteration = 3000; batchs_num = 50; show_times = 100;
+		save_path = save_nn_path; save_output = save_nn_output;
+#else
+		//卷积网络
+		CreateCNN(net);
+		iteration = 500; batchs_num = 50; show_times = 10;
+		save_path = save_cnn_path; save_output = save_cnn_output;
+
+#endif //NET_NN
+
+		//训练网络
+		train(input, output, net, iteration, batchs_num, show_times, save_path);
+		end = clock();
+		printf("\ntime=%fs\n", (double)(end - start) / CLK_TCK);
+		printf("点击任意键开始测试!\n");
+		getchar();
+		//测试网络
+		testNet("./train_data", save_path, save_output);
 	}
-	vector<Mat> input;
-	vector<Mat> output;
-	read_data(input, output);
-	start = clock();
-	Srandom();
-	string save_nn_path = "./model/nn_model.conf";
-	string save_cnn_path = "./model/cnn_model.conf";
-	Net net;
-	//全连接网络
-	CreateNN(net);
-	train(input, output, net, 1000, 50, 100, save_nn_path);
-	//卷积网络
-	/*CreateCNN(net);
-	train(input, output, net, 300, 50, 1, save_cnn_path);*/
-	//全连接测试网络
-	testNet("./train_data", save_nn_path, "nn_finish.csv");
-	//卷积测试网络
-	//testNet("./train_data", save_cnn_path, "cnn_finish.csv");
-	end = clock();
-	printf("\ntime=%fs\n", (double)(end - start) / CLK_TCK);
 	system("pause");
 	return 0;
 }

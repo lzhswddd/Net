@@ -234,6 +234,22 @@ void Matrix::addones(direction dire)
 	}
 	*this = temp;
 }
+void Matrix::mChannel(const Matrix & src, int channel)
+{
+	if (matrix == nullptr || src.matrix == nullptr) {
+		cerr << errinfo[ERR_INFO_EMPTY] << endl;
+		throw errinfo[0];
+	}
+	if (row != src.row || col != src.col || channel >= depth) {
+		cerr << errinfo[ERR_INFO_SIZE] << endl;
+		throw errinfo[0];
+	}
+	for (int i = 0; i < row; ++i) {
+		for (int j = 0; j < col; ++j) {
+			matrix[(i*col + j)*depth + channel] = src(i, j);
+		}
+	}
+}
 void Matrix::reshape(int row, int col, int channel)
 {
 	if (matrix == nullptr) {

@@ -239,9 +239,23 @@ const Image nn::Imread(const char * image_path, bool is_gray)
 	return image;
 }
 
+const Mat nn::mImread(const char * image_path, bool is_gray)
+{
+	return Image2Mat(Imread(image_path, is_gray));
+}
+
 void nn::Imwrite(const char * image_path, Image & image)
 {
 	if (!tje_encode_to_file(image_path, image.cols, image.rows, image.channels, true, image.data)) {
+		fprintf(stderr, "save %s fail.\n", image_path);
+		throw "save image fail";
+	}
+}
+
+void nn::Imwrite(const char * image_path, const Mat & image)
+{
+	Image img = Mat2Image(image);
+	if (!tje_encode_to_file(image_path, img.cols, img.rows, img.channels, true, img.data)) {
 		fprintf(stderr, "save %s fail.\n", image_path);
 		throw "save image fail";
 	}
