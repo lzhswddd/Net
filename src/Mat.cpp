@@ -334,7 +334,7 @@ const Matrix nn::zeros(Size size)
 	Matrix mat(size.hei, size.wid);
 	return mat;
 }
-const Matrix nn::zeros(const Size3 & size)
+const Matrix nn::zeros(Size3 size)
 {
 	return Matrix(size);
 }
@@ -763,9 +763,12 @@ const Matrix nn::mExp(const Matrix &temp)
 		cerr << errinfo[ERR_INFO_EMPTY] << endl;
 		throw temp;
 	}
-	Matrix m(temp);
-	for (int ind = 0; ind < temp.length(); ind++)
+	Matrix m(temp.size3());
+	for (int ind = 0; ind < temp.length(); ind++) {
 		m(ind) = exp(temp(ind));
+		if (m(ind) == 0)
+			m(ind) = (numeric_limits<double>::min)();
+	}
 	return m;
 }
 const Matrix nn::mLog(const Matrix &temp)
@@ -774,9 +777,12 @@ const Matrix nn::mLog(const Matrix &temp)
 		cerr << errinfo[ERR_INFO_EMPTY] << endl;
 		throw temp;
 	}
-	Matrix m(temp);
-	for (int ind = 0; ind < temp.length(); ind++)
-		m(ind) = log(temp(ind));
+	Matrix m(temp.size3());
+	for (int ind = 0; ind < temp.length(); ind++) 
+		if (temp(ind) == 0)
+			m(ind) = (numeric_limits<double>::min)();
+		else
+			m(ind) = log(temp(ind));
 	return m;
 }
 const Matrix nn::mSqrt(const Matrix &temp)
@@ -905,7 +911,7 @@ Size3 nn::mCalSize(const Matrix & src, const Matrix & kern, Point & anchor, Size
 	bottom = kern_row - anchor.x - 1;
 	left = anchor.y;
 	right = kern_col - anchor.y - 1;
-	return Size3((src.rows() - top - bottom) / strides.hei, (src.cols() - left - right) / strides.wid, src.channels()*kern.channels());
+	return Size3((src.rows() - top - bottom) / strides.hei, (src.cols() - left - right) / strides.wid, kern.channels()/ src.channels());
 }
 const Matrix nn::mThreshold(const Matrix & src, double boundary, double lower, double upper, int boundary2upper)
 {

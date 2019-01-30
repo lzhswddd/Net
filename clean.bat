@@ -87,6 +87,14 @@ if exist "ALL_BUILD.vcxproj.filters" (
         echo delete "ALL_BUILD.vcxproj.filters" success!
     )
 )
+if exist "ALL_BUILD.vcxproj.user" (
+    del /A /F /Q "ALL_BUILD.vcxproj.user"
+    if exist "ALL_BUILD.vcxproj.user" (
+        echo delete "ALL_BUILD.vcxproj.user" fail! 
+    ) else (
+        echo delete "ALL_BUILD.vcxproj.user" success!
+    )
+)
 if exist "cmake_install.cmake" (
     del /A /F /Q "cmake_install.cmake"
     if exist "cmake_install.cmake" (

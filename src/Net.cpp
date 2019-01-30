@@ -191,17 +191,9 @@ void Net::AddConv(const Mat & conv_layer, const Mat & conv_bias, bool is_copy_bo
 }
 void Net::AddConv(int kern_row, int kern_col, int input_channel, int output_channel, bool is_copy_border, Size strides, Point anchor)
 {
-	if (output_channel < input_channel) {
-		fprintf(stderr, "input_channel must be less than output_channel!");
-		throw input_channel;
-	}
-	if (output_channel / input_channel <= 0) {
-		fprintf(stderr, "output channel divided by input channel must be greater than one!");
-		throw output_channel;
-	}
 	config.push_back(CONV2D);
 	convinfo.push_back(ConvInfo(strides, anchor, is_copy_border));
-	layer.push_back(CreateMat(kern_row, kern_col, output_channel / input_channel));
+	layer.push_back(CreateMat(kern_row, kern_col, output_channel*input_channel));
 	layer.push_back(CreateMat(1, 1, output_channel));
 }
 
@@ -289,13 +281,16 @@ double Net::TrainModel(const vector<Mat> &input, const vector<Mat> &label, doubl
 			dlayer[layer_num] += d_layer[layer_num];
 		}
 	}
-	for (size_t layer_num = 0; layer_num < layer.size(); ++layer_num) {
-		layer[layer_num] += dlayer[layer_num] / (double)input.size();
-	}
 	error_ /= (double)input.size();
 	if (error != nullptr)
 		*error = error_;
-	return acc / (double)input.size();
+	double mean_acc = acc / (double)input.size();
+	//if (mean_acc != 1) {
+		for (size_t layer_num = 0; layer_num < layer.size(); ++layer_num) {
+			layer[layer_num] += dlayer[layer_num] / (double)input.size();
+		}
+	//}
+	return mean_acc;
 }
 Mat Net::Run(const Mat & input) const
 {
@@ -403,7 +398,7 @@ void Net::ForwardPropagation(const Mat & input, Mat & output, const vector<Mat> 
 			if (dropout[dropout_layer] != 0) {
 				Mat drop = mThreshold(mRand(0, 1, y.rows(), y.cols(), y.channels(), true), dropout[dropout_layer], 0, 1);
 				y = Mult(y, drop);
-				y /= (1 - dropout[dropout_layer]);
+				y *= 1 / (1 - dropout[dropout_layer]);
 			}
 			dropout_layer += 1;
 			break;
@@ -462,10 +457,10 @@ void Net::JacobiMat(
 		switch (config[index]){
 		case CONV2D:
 			dlayer[layer.size() - 1 - number] = mSum(value, CHANNEL);
-			dlayer[layer.size() - 2 - number] = iconv2d(x[x_num - 1], value, layer[layer_num - 1].size3(), convinfo[conv_layer].strides, convinfo[conv_layer].anchor, false);
+			dlayer[layer.size() - 2 - number] = iconv2d(x[x_num - 1], value, layer[layer_num - 1].size3(), convinfo[conv_layer], false);
 			number += 2;
 			if (index > 0 && layer_num > 1)
-				value = iconv2d(value, layer[layer_num - 1].Tran(), Size3(), convinfo[conv_layer].strides, convinfo[conv_layer].anchor, true);
+				value = iconv2d(value, layer[layer_num - 1].Tran(), Size3(), convinfo[conv_layer], true);
 			conv_layer -= 1;
 			layer_num -= 2;
 			x_num -= 1;
@@ -899,35 +894,60 @@ const Mat nn::CreateMat(int row, int col, int channel, double low, double top)
 }
 const Mat nn::CreateMat(int row, int col, int channel_input, int channel_output, double low, double top)
 {
-	return mRand(0, int(top - low), row, col, channel_output / channel_input, true) + low;
+	return mRand(0, int(top - low), row, col, channel_output * channel_input, true) + low;
 }
-const Mat nn::iconv2d(const Mat & input, const Mat & kern, const Size3 & E_kern_size, const Size & strides, Point anchor, bool is_copy_border)
+const Mat nn::iconv2d(const Mat & input, const Mat & kern, const Size3 & E_kern_size, ConvInfo conv, bool is_copy_border)
 {
 	Mat output;
-	int depth;
+	Size3 area;
+	int left, right, top, bottom;
 	if (E_kern_size.x == 0 || E_kern_size.y == 0 || E_kern_size.z == 0) {
-		depth = input.channels() / kern.channels();
-		output = zeros(input.rows(), input.cols(), depth);
-		for (int i = 0; i < depth; i++) {
-			Mat sum = zeros(input.rows(), input.cols());
-			for (int j = 0; j < kern.channels(); j++) {
-				sum += Filter2D(input[i*kern.channels() + j], kern[j], anchor, strides, is_copy_border);
+		area.z = kern.channels() / input.channels();
+		if (conv.is_copy_border) {
+			area.x = input.rows() * conv.strides.hei;
+			area.y = input.cols() * conv.strides.wid;
+			output = zeros(input.rows() * conv.strides.hei, input.cols() * conv.strides.wid, area.z);
+		}
+		else {
+			if (conv.anchor == Point(-1, -1)) {
+				conv.anchor.x = kern.rows() % 2 ? kern.rows() / 2 : kern.rows() / 2 - 1;
+				conv.anchor.y = kern.cols() % 2 ? kern.cols() / 2 : kern.cols() / 2 - 1;
 			}
-			output.mChannel(sum / double(kern.channels()), i);			
-			//output.mChannel(sum, i);
+			top = conv.anchor.x;
+			bottom = kern.rows() - conv.anchor.x - 1;
+			left = conv.anchor.y;
+			right = kern.cols() - conv.anchor.y - 1;
+			area.x = (input.rows() + top + bottom) * conv.strides.hei;
+			area.y = (input.cols() + left + right) * conv.strides.wid;
+			output = zeros(area);
+		}
+		for (int i = 0; i < area.z; i++) {
+			Mat sum = zeros(area.x, area.y);
+			for (int j = 0; j < input.channels(); j++) {		
+				if (!conv.is_copy_border) {
+					Mat copy_border = copyMakeBorder(input[j], top, bottom, left, right);
+					sum += Filter2D(copy_border, kern[i*input.channels() + j], conv.anchor, conv.strides, is_copy_border);
+				}
+				else
+					sum += Filter2D(input[j], kern[i*input.channels() + j], conv.anchor, conv.strides, is_copy_border);
+				
+			}
+			//output.mChannel(sum / double(input.channels()), i);
+			output.mChannel(sum, i);
 		}
 	}
 	else {
-		depth = E_kern_size.z;
-		output = zeros(E_kern_size.x, E_kern_size.y, depth);
-		for (int i = 0; i < depth; i++) {
-			Mat sum = zeros(E_kern_size.x, E_kern_size.y);
+		area.z = E_kern_size.z;
+		output = zeros(E_kern_size.x, E_kern_size.y, area.z);
+		for (int i = 0; i < kern.channels(); i++) {
 			for (int j = 0; j < input.channels(); j++) {
-				Mat copy_border = copyMakeBorder(input[j], E_kern_size.x / 2, E_kern_size.x / 2, E_kern_size.y / 2, E_kern_size.y / 2);
-				sum += Filter2D(copy_border, kern[i*input.channels() + j], anchor, strides, is_copy_border);
+				if (conv.is_copy_border) {
+					Mat copy_border = copyMakeBorder(input[j], E_kern_size.x / 2, E_kern_size.x / 2, E_kern_size.y / 2, E_kern_size.y / 2);
+					output.mChannel(Filter2D(copy_border, kern[i], conv.anchor, conv.strides, is_copy_border), i*input.channels() + j);
+				}
+				else
+					output.mChannel(Filter2D(input[j], kern[i], conv.anchor, conv.strides, is_copy_border), i*input.channels() + j);
 			}
-			output.mChannel(sum / double(input.channels()), i);
-			//output.mChannel(sum, i);
 		}
 	}
 	return output;
@@ -935,16 +955,19 @@ const Mat nn::iconv2d(const Mat & input, const Mat & kern, const Size3 & E_kern_
 {
 	Mat output;
 	if (is_copy_border) {
-		output = zeros(input.rows(), input.cols(), input.channels()*kern.channels());
+		output = zeros(input.rows(), input.cols(), kern.channels() / input.channels());
 	}
 	else {
 		int left, right, top, bottom;
 		Size3 size = mCalSize(input, kern, anchor, strides, left, right, top, bottom);
 		output = zeros(size);
 	}
-	for (int i = 0; i < kern.channels(); i++)
+	for (int i = 0; i < kern.channels() / input.channels(); i++) {
+		Mat sum = zeros(output.rows(), output.cols());
 		for (int j = 0; j < input.channels(); j++)
-			output.mChannel(Filter2D(input[j], kern[i], anchor, strides, is_copy_border), i*input.channels() + j);
+			sum += Filter2D(input[j], kern[i*input.channels() + j], anchor, strides, is_copy_border);
+		output.mChannel(sum, i);
+	}
 	return output;
 }
 const Mat nn::upsample(const Mat & input, const Size & ksize, const Mat & markpoint)

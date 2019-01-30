@@ -752,7 +752,7 @@ namespace nn {
 	@brief 返回元素为0的size矩阵
 	@param size 矩阵大小
 	*/
-	const Matrix zeros(const Size3 & size);
+	const Matrix zeros(Size3 size);
 	/**
 	@brief 返回元素为v的row*col*channel矩阵
 	@param v 填充元素

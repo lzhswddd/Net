@@ -144,8 +144,8 @@ namespace nn {
 		@param output_ 输出函数
 		@param activation_ 激活函数
 		*/
-		Optimizer* minimize(LossFunc loss_ = nullptr)const; 
-		
+		Optimizer* minimize(LossFunc loss_ = nullptr)const;
+
 		Mat data(vector<string> &value_name)const;
 	private:
 		vector<Mat> ma;
@@ -166,7 +166,7 @@ namespace nn {
 		@param step 学习率
 		@param epsilon 偏置(避免分母=0)
 		*/
-		explicit AdagradOptimizer(double step = 1e-2, double epsilon = 1e-7); 
+		explicit AdagradOptimizer(double step = 1e-2, double epsilon = 1e-7);
 		AdagradOptimizer(vector<double>& value);
 		void init(vector<Size3>& size);
 		int Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<Mat> &a, double &error);

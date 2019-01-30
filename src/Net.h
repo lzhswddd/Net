@@ -370,7 +370,7 @@ namespace nn {
 	@param top иооч
 	*/
 	const Mat CreateMat(int row, int col, int channel_input, int channel_output, double low = -0.5, double top = 0.5);
-	const Mat iconv2d(const Mat& input, const Mat& kern, const Size3 & E_kern_size, const Size& strides, Point anchor, bool is_copy_border = true);
+	const Mat iconv2d(const Mat& input, const Mat& kern, const Size3 & E_kern_size, ConvInfo conv, bool is_copy_border = true);
 	const Mat conv2d(const Mat& input, const Mat& kern, const Size& strides, Point anchor, bool is_copy_border = true);
 	const Mat upsample(const Mat & input, const Size & ksize, const Mat & markpoint = Mat());
 	const Mat MaxPool(const Mat & input, const Size & ksize);

@@ -302,6 +302,8 @@ int AdamOptimizer::Run(vector<Mat> &dlayer, const Mat &x, const Mat &y, vector<M
 		Mat d = dlayer[layer_num];
 		ma[layer_num] = beta1 * ma[layer_num] + (1 - beta1)*dlayer[layer_num];
 		alpha[layer_num] = beta2 * alpha[layer_num] + (1 - beta2)*mPow(dlayer[layer_num], 2);
+		//ma[layer_num] /= (1 - beta1);
+		//alpha[layer_num] /= (1 - beta2);
 		dlayer[layer_num] = -Mult(step / mSqrt(alpha[layer_num] + epsilon), ma[layer_num]);
 	}
 	return acc;
